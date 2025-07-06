@@ -58,6 +58,8 @@ executable parser-testing
     -- Import common warning flags.
     import:           warnings
 
+    other-modules:    Parser
+
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
 
@@ -69,6 +71,7 @@ executable parser-testing
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.17.2.1
+                    , bytestring
 
     -- Directories containing source files.
     hs-source-dirs:   app
