@@ -8,16 +8,16 @@ import Data.Char (isSpace)
 printIt :: String -> IO ()
 printIt = putStrLn
 
-data ParserState = ParserState {
+data Graymap = Graymap {
        bWidth  :: Int
      , bHeight :: Int
      , bMax    :: Int
      , bData  :: L.ByteString
      } deriving (Eq)
-instance Show ParserState where
-  show (ParserState w h m _) = "ParserState " ++ show w ++ "x" ++ show h ++ " " ++ show m
+instance Show Graymap where
+  show (Graymap w h m _) = "Graymap " ++ show w ++ "x" ++ show h ++ " " ++ show m
 
-openFile :: IO Handle -> ParserState
+openFile :: IO Handle -> Graymap
 openFile = undefined
 
 matchHeader :: L.ByteString -> L.ByteString -> Maybe L.ByteString
@@ -51,7 +51,7 @@ Nothing >>? _ = Nothing
 Just v  >>? f = f v
 
 
-parseP5 :: L.ByteString -> Maybe (ParserState, L.ByteString)
+parseP5 :: L.ByteString -> Maybe (Graymap, L.ByteString)
 parseP5 s = matchP5Header s                            >>?
   \s1 -> skipSpace ((), s1)                            >>?
   (getNat . snd)                                       >>?
@@ -63,5 +63,5 @@ parseP5 s = matchP5Header s                            >>?
     then Nothing
     else getBytes 1 s4                                 >>?
   \(_,s5) -> getBytes (width * height) s5              >>?
-  \(bytes,s6) -> Just (ParserState width height maxB bytes, s6)
+  \(bytes,s6) -> Just (Graymap width height maxB bytes, s6)
 
