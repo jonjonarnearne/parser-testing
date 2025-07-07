@@ -25,12 +25,18 @@ matchHeader pfx str
   | pfx `L8.isPrefixOf` str = Just $ L8.dropWhile isSpace (L.drop (L.length pfx) str)
   | otherwise               = Nothing
 
+matchP5Header :: L.ByteString -> Maybe L.ByteString
+matchP5Header = matchHeader $ L8.pack "P5"
+
 getNat :: L.ByteString -> Maybe (Int, L.ByteString)
 getNat s = case L8.readInt s of
              Nothing -> Nothing
              Just (num, rest)
                | num <= 0  -> Nothing
                | otherwise -> Just (fromIntegral num, rest)
+
+skipSpace :: (a, L.ByteString) -> Maybe (a, L.ByteString)
+skipSpace (a, b) = Just (a, L8.dropWhile isSpace b)
 
 getBytes :: Int -> L.ByteString
          -> Maybe (L.ByteString, L.ByteString)
@@ -40,27 +46,22 @@ getBytes l s = let count         = fromIntegral l
                   then Nothing
                   else Just both
 
+(>>?) :: Maybe a -> (a -> Maybe b) -> Maybe b
+Nothing >>? _ = Nothing
+Just v  >>? f = f v
+
+
 parseP5 :: L.ByteString -> Maybe (ParserState, L.ByteString)
-parseP5 s =
-  case matchHeader (L8.pack "P5") s of
-    Nothing -> Nothing
-    Just s1 ->
-      case getNat s1 of
-        Nothing -> Nothing
-        Just (width, s2) ->
-          case getNat (L8.dropWhile isSpace s2) of
-            Nothing -> Nothing
-            Just (height, s3) ->
-              case getNat (L8.dropWhile isSpace s3) of
-                Nothing -> Nothing
-                Just (maxG, s4)
-                  | maxG > 255 -> Nothing
-                  | otherwise ->
-                      case getBytes 1 s4 of
-                        Nothing -> Nothing
-                        Just (_, s5) ->
-                          case getBytes (width * height) s5 of
-                            Nothing -> Nothing
-                            Just (bitmap, s6) ->
-                              Just (ParserState width height maxG bitmap, s6)
+parseP5 s = matchP5Header s                            >>?
+  \s1 -> skipSpace ((), s1)                            >>?
+  (getNat . snd)                                       >>?
+  skipSpace                                            >>?
+  \(width, s2) -> getNat s2                            >>?
+  skipSpace                                            >>?
+  \(height,  s3) -> getNat s3                          >>?
+  \(maxB,s4) -> if maxB > 255
+    then Nothing
+    else getBytes 1 s4                                 >>?
+  \(_,s5) -> getBytes (width * height) s5              >>?
+  \(bytes,s6) -> Just (ParserState width height maxB bytes, s6)
 
