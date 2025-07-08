@@ -11,7 +11,7 @@ main :: IO ()
 main = do
     binary <- openBinaryFile "baboon.pgm" ReadMode
     bD <- L.hGetContents binary
-    gM <- case parseP5 bD of
-      Nothing -> hPutStrLn stderr "parse failed" >> exitFailure
-      Just (m, _) -> return m
+    gM <- case parse parseMatchP5 bD of
+      Left err -> hPutStrLn stderr ("parse failed: " ++ err) >> exitFailure
+      Right m  -> return m
     printIt $ "Hello world:" ++ show gM

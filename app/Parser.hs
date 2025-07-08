@@ -4,9 +4,84 @@ import System.IO (Handle)
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import Data.Char (isSpace)
+import Data.Int (Int64)
+import Data.Word (Word8)
 
 printIt :: String -> IO ()
 printIt = putStrLn
+
+data ParseState = ParseState {
+       string :: L.ByteString
+     , offset :: Int64
+     } deriving (Show)
+
+modifyOffset :: ParseState -> Int64 -> ParseState
+modifyOffset s i = s { offset = i }
+
+-- Take state, return some value and state
+simpleParse :: ParseState -> (a, ParseState)
+simpleParse = undefined
+
+-- Take state, return error or value and state
+betterParse :: ParseState -> Either String (a, ParseState)
+betterParse = undefined
+
+newtype Parse a = Parse {
+    runParse :: ParseState -> Either String (a, ParseState)
+}
+
+(==>) :: Parse a -> (a -> Parse b) -> Parse b
+a ==> b = Parse chainedParser
+  where chainedParser initState =
+          case runParse a initState of
+            Left err                 -> Left err
+            Right (result, newState) ->
+              runParse (b result) newState
+
+
+-- Identity parser the lambda is the actual parse function
+identity :: a -> Parse a
+identity a = Parse $ \s -> Right (a, s)
+
+initParser :: L.ByteString -> Parse ()
+initParser bytes = Parse $ \_ -> Right ((), ParseState bytes 0)
+
+parseHeader :: L.ByteString -> Parse Bool
+parseHeader needle =
+    getState ==> \initState -> if L8.isPrefixOf needle (string initState)
+        then putState initState ==> \_ -> identity True
+        else bail "No prefix"
+
+parseMatchP5 :: Parse Bool
+parseMatchP5 = parseHeader $ L8.pack "P5"
+
+parseByte :: Parse Word8
+parseByte =
+    getState ==> \initState ->
+      case L.uncons (string initState) of
+        Nothing           -> bail "No more input"
+        Just (byte, rest) ->
+          putState newState ==> \_ ->
+          identity byte
+         where newState = initState { string = rest, offset = newOffset }
+               newOffset = offset initState + 1
+
+getState :: Parse ParseState
+getState = Parse $ \s -> Right (s, s)
+
+putState :: ParseState -> Parse ()
+putState s = Parse $ \_ -> Right ((), s)
+
+bail :: String -> Parse a
+bail err = Parse $ \s -> Left $
+            "byte offset " ++ show (offset s) ++ ": " ++ err
+
+
+parse :: Parse a -> L.ByteString -> Either String a
+parse parser bytes
+    = case runParse parser (ParseState bytes 0) of
+        Left err          -> Left err
+        Right (result, _) -> Right result
 
 data Graymap = Graymap {
        bWidth  :: Int
