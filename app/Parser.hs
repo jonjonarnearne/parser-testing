@@ -48,12 +48,18 @@ initParser bytes = Parse $ \_ -> Right ((), ParseState bytes 0)
 
 parseHeader :: L.ByteString -> Parse Bool
 parseHeader needle =
-    getState ==> \initState -> if L8.isPrefixOf needle (string initState)
-        then putState initState ==> \_ -> identity True
-        else bail "No prefix"
+    getState ==> \initState ->
+      case L8.isPrefixOf needle (string initState) of
+        False            -> bail "Prefix not found"
+        True             ->
+           putState newState ==> \_ -> 
+           identity True
+         where newState = initState { string = newString, offset = newOffset }
+               newOffset = offset initState + L8.length needle
+               newString = L8.dropWhile isSpace (L8.drop (L8.length needle) $ string initState)
 
-parseMatchP5 :: Parse Bool
-parseMatchP5 = parseHeader $ L8.pack "P5"
+parseMatchP5 :: Parse ParseState
+parseMatchP5 = parseHeader (L8.pack "P5") ==> const getState
 
 parseByte :: Parse Word8
 parseByte =
