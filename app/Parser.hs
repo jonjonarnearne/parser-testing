@@ -93,7 +93,9 @@ parseMatchP5 =
   parseHeader (L8.pack "P5") ==> \_ ->
   parseReadInt               ==> \_ -> -- Width
   parseSkipSpace             ==> \_ ->
-  parseReadInt               ==>       -- Height
+  parseReadInt               ==> \_ -> -- Height
+  parseSkipSpace             ==> \_ ->
+  parseReadInt               ==>       -- Max gray
   const getState
 
 getState :: Parse ParseState
