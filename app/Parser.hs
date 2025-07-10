@@ -58,9 +58,6 @@ parseHeader needle =
                newOffset = offset initState + L8.length needle
                newString = L8.dropWhile isSpace (L8.drop (L8.length needle) $ string initState)
 
-parseMatchP5 :: Parse ParseState
-parseMatchP5 = parseHeader (L8.pack "P5") ==> \_ -> parseReadInt ==> const getState
-
 parseByte :: Parse Word8
 parseByte =
     getState ==> \initState ->
@@ -83,6 +80,20 @@ parseReadInt =
                 identity num -- $ fromIntegral num
           where newState = initState { string = rest, offset = newOffset }
                 newOffset = offset initState + (L8.length (string initState) - L8.length rest)
+
+parseSkipSpace :: Parse ()
+parseSkipSpace =
+    getState ==> \initState ->
+      let newString = L8.dropWhile isSpace $ string initState
+          newOffset = L8.length (string initState) - L8.length newString + offset initState
+       in putState $ initState { string = newString, offset = newOffset }
+
+parseMatchP5 :: Parse ParseState
+parseMatchP5 =
+  parseHeader (L8.pack "P5") ==> \_ ->
+  parseReadInt               ==> \_ ->
+  parseSkipSpace             ==>
+  const getState
 
 getState :: Parse ParseState
 getState = Parse $ \s -> Right (s, s)
