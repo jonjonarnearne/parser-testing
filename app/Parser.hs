@@ -91,8 +91,9 @@ parseSkipSpace =
 parseMatchP5 :: Parse ParseState
 parseMatchP5 =
   parseHeader (L8.pack "P5") ==> \_ ->
-  parseReadInt               ==> \_ ->
-  parseSkipSpace             ==>
+  parseReadInt               ==> \_ -> -- Width
+  parseSkipSpace             ==> \_ ->
+  parseReadInt               ==>       -- Height
   const getState
 
 getState :: Parse ParseState
