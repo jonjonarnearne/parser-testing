@@ -52,14 +52,14 @@ parseHeader needle =
       case L8.isPrefixOf needle (string initState) of
         False            -> bail "Prefix not found"
         True             ->
-           putState newState ==> \_ -> 
+           putState newState ==> \_ ->
            identity True
          where newState = initState { string = newString, offset = newOffset }
                newOffset = offset initState + L8.length needle
                newString = L8.dropWhile isSpace (L8.drop (L8.length needle) $ string initState)
 
 parseMatchP5 :: Parse ParseState
-parseMatchP5 = parseHeader (L8.pack "P5") ==> const getState
+parseMatchP5 = parseHeader (L8.pack "P5") ==> \_ -> parseReadInt ==> const getState
 
 parseByte :: Parse Word8
 parseByte =
@@ -71,6 +71,18 @@ parseByte =
           identity byte
          where newState = initState { string = rest, offset = newOffset }
                newOffset = offset initState + 1
+
+parseReadInt :: Parse Int
+parseReadInt =
+    getState ==> \initState ->
+      case L8.readInt (string initState) of
+        Nothing -> bail "No more input"
+        Just (num, rest)
+          | num <= 0 -> bail $ "Expected natural, got: " ++ show num
+          | otherwise -> putState newState ==> \_ ->
+                identity num -- $ fromIntegral num
+          where newState = initState { string = rest, offset = newOffset }
+                newOffset = offset initState + (L8.length (string initState) - L8.length rest)
 
 getState :: Parse ParseState
 getState = Parse $ \s -> Right (s, s)
