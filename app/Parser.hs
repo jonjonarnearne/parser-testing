@@ -88,14 +88,34 @@ parseSkipSpace =
           newOffset = L8.length (string initState) - L8.length newString + offset initState
        in putState $ initState { string = newString, offset = newOffset }
 
+{-
+getBytes :: Int -> L.ByteString
+         -> Maybe (L.ByteString, L.ByteString)
+getBytes l s = let count         = fromIntegral l
+                   both@(pfx, _) = L.splitAt count s
+                in if L.length pfx < count
+                  then Nothing
+                  else Just both
+-}
+parseReadBytes :: Int -> Parse L.ByteString
+parseReadBytes l =
+    getState ==> \initState ->
+     let count       = fromIntegral l
+         (pfx, rest) = L.splitAt count $ string initState
+         newState    = initState { string = rest }
+      in if L.length pfx < count
+        then bail $ "Could not parse " ++ show count ++ " bytes"
+        else putState newState ==> \_ -> identity pfx
+
 parseMatchP5 :: Parse ParseState
 parseMatchP5 =
-  parseHeader (L8.pack "P5") ==> \_ ->
-  parseReadInt               ==> \_ -> -- Width
-  parseSkipSpace             ==> \_ ->
-  parseReadInt               ==> \_ -> -- Height
-  parseSkipSpace             ==> \_ ->
-  parseReadInt               ==>       -- Max gray
+  parseHeader (L8.pack "P5")      ==> \_ ->
+  parseReadInt                    ==> \width -> -- Width
+  parseSkipSpace                  ==> \_ ->
+  parseReadInt                    ==> \height -> -- Height
+  parseSkipSpace                  ==> \_ ->
+  parseReadInt                    ==> \_ ->      -- Max gray
+  parseReadBytes (width * height) ==>
   const getState
 
 getState :: Parse ParseState
