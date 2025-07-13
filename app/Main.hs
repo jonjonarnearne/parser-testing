@@ -14,4 +14,4 @@ main = do
     gM <- case parse parseMatchP5 bD of
       Left err -> hPutStrLn stderr ("parse failed: " ++ err) >> exitFailure
       Right m  -> return m
-    printIt $ "Hello world:" ++ show gM
+    printIt $ "Hello world:" ++ show (L.length gM)

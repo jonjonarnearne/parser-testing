@@ -102,21 +102,21 @@ parseReadBytes l =
     getState ==> \initState ->
      let count       = fromIntegral l
          (pfx, rest) = L.splitAt count $ string initState
-         newState    = initState { string = rest }
+         newOffset = L8.length (string initState) - L8.length rest + offset initState
+         newState    = initState { string = rest, offset = newOffset }
       in if L.length pfx < count
         then bail $ "Could not parse " ++ show count ++ " bytes"
         else putState newState ==> \_ -> identity pfx
 
-parseMatchP5 :: Parse ParseState
+parseMatchP5 :: Parse L.ByteString
 parseMatchP5 =
-  parseHeader (L8.pack "P5")      ==> \_ ->
-  parseReadInt                    ==> \width -> -- Width
-  parseSkipSpace                  ==> \_ ->
-  parseReadInt                    ==> \height -> -- Height
-  parseSkipSpace                  ==> \_ ->
-  parseReadInt                    ==> \_ ->      -- Max gray
-  parseReadBytes (width * height) ==>
-  const getState
+  parseHeader (L8.pack "P5")      ==>
+  const parseReadInt              ==> \width -> -- Width
+  parseSkipSpace                  ==>
+  const parseReadInt              ==> \height -> -- Height
+  parseSkipSpace                  ==>
+  const parseReadInt              ==> \_ ->      -- Max gray
+  parseReadBytes (width * height)
 
 getState :: Parse ParseState
 getState = Parse $ \s -> Right (s, s)
