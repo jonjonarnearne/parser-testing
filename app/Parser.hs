@@ -30,6 +30,21 @@ newtype Parse a = Parse {
     runParse :: ParseState -> Either String (a, ParseState)
 }
 
+instance Functor Parse where
+  fmap f x = x ==> \v -> Parse $ \s -> Right (f v, s)
+
+instance Applicative Parse where
+  pure a = Parse $ \s -> Right (a, s)
+  a <*> b =
+    a ==> \f ->
+    b ==> \v ->
+    Parse $ \s -> Right (f v, s)
+
+
+instance Monad Parse where
+  (>>=) = (==>)
+  
+
 (==>) :: Parse a -> (a -> Parse b) -> Parse b
 a ==> b = Parse chainedParser
   where chainedParser initState =
