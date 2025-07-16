@@ -62,75 +62,61 @@ initParser :: L.ByteString -> Parse ()
 initParser bytes = Parse $ \_ -> Right ((), ParseState bytes 0)
 
 parseHeader :: L.ByteString -> Parse Bool
-parseHeader needle =
-    getState ==> \initState ->
-      case L8.isPrefixOf needle (string initState) of
-        False            -> bail "Prefix not found"
-        True             ->
-           putState newState ==> \_ ->
-           identity True
-         where newState = initState { string = newString, offset = newOffset }
-               newOffset = offset initState + L8.length needle
-               newString = L8.dropWhile isSpace (L8.drop (L8.length needle) $ string initState)
+parseHeader needle = do
+    initState <- getState
+    ret <- if L8.isPrefixOf needle (string initState)
+         then pure True
+         else bail "Prefix not found"
+    let newOffset = offset initState + L8.length needle
+        newString = L8.dropWhile isSpace (L8.drop (L8.length needle) $ string initState)
+    putState $ initState { string = newString, offset = newOffset }
+    pure ret
 
 parseByte :: Parse Word8
-parseByte =
-    getState ==> \initState ->
-      case L.uncons (string initState) of
+parseByte = do
+    initState <- getState
+    (byte, rest) <- case L.uncons (string initState) of
         Nothing           -> bail "No more input"
-        Just (byte, rest) ->
-          putState newState ==> \_ ->
-          identity byte
-         where newState = initState { string = rest, offset = newOffset }
-               newOffset = offset initState + 1
+        Just rc           -> pure rc
+    let newOffset = offset initState + 1
+    putState $ initState { string = rest, offset = newOffset }
+    pure byte
 
 parseReadInt :: Parse Int
-parseReadInt =
-    getState ==> \initState ->
-      case L8.readInt (string initState) of
-        Nothing -> bail "No more input"
-        Just (num, rest)
-          | num <= 0 -> bail $ "Expected natural, got: " ++ show num
-          | otherwise -> putState newState ==> \_ ->
-                identity num -- $ fromIntegral num
-          where newState = initState { string = rest, offset = newOffset }
-                newOffset = offset initState + (L8.length (string initState) - L8.length rest)
+parseReadInt = do
+    initState <- getState
+    (num, rest) <- case L8.readInt (string initState) of
+      Nothing -> bail "No more input"
+      Just rc@(num, _)
+        | num <= 0  -> bail $ "Expected natural, got: " ++ show num
+        | otherwise -> pure rc
+    let newOffset = offset initState + (L8.length (string initState) - L8.length rest)
+    putState $ initState { string = rest, offset = newOffset }
+    pure num
 
 parseSkipSpace :: Parse ()
-parseSkipSpace =
-    getState ==> \initState ->
-      let newString = L8.dropWhile isSpace $ string initState
-          newOffset = L8.length (string initState) - L8.length newString + offset initState
-       in putState $ initState { string = newString, offset = newOffset }
+parseSkipSpace = do
+    initState <- getState
+    let newString = L8.dropWhile isSpace $ string initState
+        newOffset = L8.length (string initState) - L8.length newString + offset initState
+    putState $ initState { string = newString, offset = newOffset }
 
-{-
-getBytes :: Int -> L.ByteString
-         -> Maybe (L.ByteString, L.ByteString)
-getBytes l s = let count         = fromIntegral l
-                   both@(pfx, _) = L.splitAt count s
-                in if L.length pfx < count
-                  then Nothing
-                  else Just both
--}
 parseReadBytes :: Int -> Parse L.ByteString
-parseReadBytes l =
-    getState ==> \initState ->
-     let count       = fromIntegral l
-         (pfx, rest) = L.splitAt count $ string initState
-         newOffset = L8.length (string initState) - L8.length rest + offset initState
-         newState    = initState { string = rest, offset = newOffset }
-      in if L.length pfx < count
-        then bail $ "Could not parse " ++ show count ++ " bytes"
-        else putState newState ==> \_ -> identity pfx
+parseReadBytes l = do
+    initState <- getState
+    let count       = fromIntegral l
+        (pfx, rest) = L.splitAt count $ string initState
+        newOffset   = L8.length (string initState) - L8.length rest + offset initState
+        newState    = initState { string = rest, offset = newOffset }
+    if L.length pfx < count
+    then bail $ "Could not parse " ++ show count ++ " bytes"
+    else putState newState ==> \_ -> identity pfx
 
 parseMatchP5 :: Parse L.ByteString
-parseMatchP5 =
-  parseHeader (L8.pack "P5")      ==>
-  const parseReadInt              ==> \width -> -- Width
-  parseSkipSpace                  ==>
-  const parseReadInt              ==> \height -> -- Height
-  parseSkipSpace                  ==>
-  const parseReadInt              ==> \_ ->      -- Max gray
+parseMatchP5 = do
+  width  <- parseHeader (L8.pack "P5") >> parseReadInt
+  height <- parseSkipSpace             >> parseReadInt
+  _      <- parseSkipSpace             >> parseReadInt
   parseReadBytes (width * height)
 
 getState :: Parse ParseState
