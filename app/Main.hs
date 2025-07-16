@@ -11,7 +11,7 @@ main :: IO ()
 main = do
     binary <- openBinaryFile "baboon.pgm" ReadMode
     bD <- L.hGetContents binary
-    gM <- case parse parseMatchP5 bD of
+    gM <- case parse parseGraymap bD of
       Left err -> hPutStrLn stderr ("parse failed: " ++ err) >> exitFailure
       Right m  -> return m
-    printIt $ "Hello world:" ++ show (L.length gM)
+    printIt $ "Graymap: " ++ show gM ++ " - data length: " ++ show (L.length $ bData gM)

@@ -129,12 +129,19 @@ bail :: String -> Parse a
 bail err = Parse $ \s -> Left $
             "byte offset " ++ show (offset s) ++ ": " ++ err
 
-
 parse :: Parse a -> L.ByteString -> Either String a
 parse parser bytes
     = case runParse parser (ParseState bytes 0) of
         Left err          -> Left err
         Right (result, _) -> Right result
+
+parseGraymap :: Parse Graymap
+parseGraymap = do
+  width  <- parseHeader (L8.pack "P5") >> parseReadInt
+  height <- parseSkipSpace             >> parseReadInt
+  maxB   <- parseSkipSpace             >> parseReadInt
+  dataB  <- parseReadBytes (width * height)
+  pure $ Graymap width height maxB dataB
 
 data Graymap = Graymap {
        bWidth  :: Int
