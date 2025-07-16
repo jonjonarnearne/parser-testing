@@ -34,7 +34,7 @@ instance Functor Parse where
   fmap f x = x ==> \v -> Parse $ \s -> Right (f v, s)
 
 instance Applicative Parse where
-  pure a = Parse $ \s -> Right (a, s)
+  pure = identity
   a <*> b =
     a ==> \f ->
     b ==> \v ->
@@ -43,7 +43,7 @@ instance Applicative Parse where
 
 instance Monad Parse where
   (>>=) = (==>)
-  
+
 
 (==>) :: Parse a -> (a -> Parse b) -> Parse b
 a ==> b = Parse chainedParser
